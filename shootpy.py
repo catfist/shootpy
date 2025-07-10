@@ -23,52 +23,60 @@ def launch_app(app, filepath):
         messagebox.showerror('エラー', f'アプリ起動失敗: {e}')
 
 def select_app(apps, filepath):
+    import tkinter as tk
+    import os
     root = tk.Tk()
-    root.title('アプリケーション選択')
-    root.geometry('320x180')
-    label = tk.Label(root, text=f'ファイル: {filepath}', wraplength=300)
-    label.pack(pady=4)
-    tree = ttk.Treeview(root)
-    # カラム定義を先に行う
-    tree['columns'] = ('name', 'path', 'args')
-    tree.column('#0', width=120, minwidth=80)
-    tree.heading('#0', text='アプリ名')
-    tree.pack(expand=True, fill='both', padx=4, pady=4)
-    # Treeviewにアプリを追加
-    def add_items(parent, app_list):
-        for idx, app in enumerate(app_list):
-            text = app['name']
-            node_id = tree.insert(parent, 'end', text=text, open=False)
-            tree.set(node_id, 'name', app['name'])
-            tree.set(node_id, 'path', app.get('path', ''))
-            tree.set(node_id, 'args', app.get('args', ''))
-            # 子項目があれば再帰的に追加
+    root.withdraw()  # メインウィンドウを非表示
+    import sys
+    script_name = os.path.basename(sys.argv[0])
+    file_name = os.path.basename(filepath)
+    # メニュー生成
+    menu = tk.Menu(root, tearoff=0)
+    # 最上部にスクリプト名・ファイル名を選択不可で追加
+    # menu.add_command(label=f'[{script_name}]', state='disabled')
+    # menu.add_command(label=f'[{file_name}]', state='disabled')
+    # menu.add_separator()
+    accelerator_map = {}
+    def add_menu_items(menu_obj, app_list):
+        for app in app_list:
+            if isinstance(app, dict) and app.get('type') == 'separator':
+                menu_obj.add_separator()
+                continue
+            label = app['name']
+            import re
+            m = re.search(r'\(&([A-Za-z0-9])\)', label)
+            acc = m.group(1).lower() if m else None
+            # サブメニュー
             if 'children' in app:
-                add_items(node_id, app['children'])
-    add_items('', apps)
-    # 最初のノードを選択し、Treeviewにフォーカス
-    first = tree.get_children()
-    if first:
-        tree.selection_set(first[0])
-        tree.focus(first[0])
-    tree.focus_set()
-    # ダブルクリックまたはEnterで起動
-    def on_open(event=None):
-        sel = tree.selection()
-        if not sel:
-            return
-        item = sel[0]
-        name = tree.set(item, 'name')
-        path = tree.set(item, 'path')
-        args = tree.set(item, 'args')
-        if path:
-            app = {'name': name, 'path': path, 'args': args}
-            launch_app(app, filepath)
-            root.destroy()
-    tree.bind('<Double-1>', on_open)
-    root.bind('<Return>', on_open)
-    # Escapeキーでウィンドウを閉じる
+                submenu = tk.Menu(menu_obj, tearoff=0)
+                add_menu_items(submenu, app['children'])
+                menu_obj.add_cascade(label=label, menu=submenu)
+                if acc:
+                    accelerator_map[acc] = (submenu, None)
+            else:
+                def make_cmd(a):
+                    return lambda: (launch_app(a, filepath), root.destroy())
+                menu_obj.add_command(label=label, command=make_cmd(app))
+                if acc:
+                    accelerator_map[acc] = (menu_obj, menu_obj.index('end'))
+    add_menu_items(menu, apps)
+    # アクセラレータキーで決定
+    def on_accel(event):
+        key = event.keysym.lower()
+        if key in accelerator_map:
+            menu_obj, idx = accelerator_map[key]
+            if idx is not None:
+                menu_obj.invoke(idx)
+    root.bind_all('<KeyPress>', on_accel)
+    # Escapeで閉じる
     root.bind('<Escape>', lambda event: root.destroy())
+    # 起動時にメニューをスクリーン中央に表示
+    def show_menu():
+        x = root.winfo_screenwidth() // 2
+        y = root.winfo_screenheight() // 2
+        menu.tk_popup(x, y)
+        root.after(100, lambda: root.destroy())  # メニューが閉じられたら終了
+    root.after(100, show_menu)
     root.mainloop()
 
 def main():
