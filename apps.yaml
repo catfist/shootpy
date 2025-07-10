@@ -1,0 +1,16 @@
+.txt:
+  - name: メモ帳(&N)
+    path: C:/Windows/System32/notepad.exe
+    args: "{file}"
+  - name: サクラエディタ(&S)
+    children:
+      - name: 通常モード
+        path: C:/Program Files/Sakura/sakura.exe
+        args: "{file}"
+      - name: 読み取り専用
+        path: C:/Program Files/Sakura/sakura.exe
+        args: "-R {file}"
+.png:
+  - name: ペイント(&P)
+    path: C:/Windows/System32/mspaint.exe
+    args: "{file}" 
